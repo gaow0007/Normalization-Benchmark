@@ -1,14 +1,12 @@
 # Normalization-Benchmark
-# Train CIFAR10 with PyTorch
-
 I'm playing with [PyTorch](http://pytorch.org/) on the CIFAR10 dataset.
 
-## Pros & cons
+## Pros
 Pros:
 - Built-in data loading and augmentation, very nice!
 - Training is fast, maybe even a little bit faster.
 - Very memory efficient!
-
+- Aggreate many Normalization Strategy
 
 ## Accuracy
 | Model             | Acc.        |

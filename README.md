@@ -11,8 +11,8 @@ Pros:
 ## Accuracy
 | Model             | Acc.        |
 | ----------------- | ----------- |
-| [VGG16](https://arxiv.org/abs/1409.1556)              | -      |
-| [VGG16-BN](https://arxiv.org/abs/1502.03167)          | -      |
+| [VGG16](https://arxiv.org/abs/1409.1556)              | 92.01  |
+| [VGG16-BN](https://arxiv.org/abs/1502.03167)          | 94.12  |
 | [VGG16-WN](https://arxiv.org/abs/1602.07868)          | -      |
 | [VGG16-LN](https://arxiv.org/abs/1607.06450)          | -      |
 | [VGG16-IN](https://arxiv.org/abs/1607.08022)          | -      |

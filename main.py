@@ -9,8 +9,10 @@ import torchvision.transforms as transforms
 
 import os
 import argparse
+import time
 
-from models import *
+from models import vgg
+from models import resnet
 from utils import *
 from torch.autograd import Variable
 
@@ -39,6 +41,7 @@ parser.add_argument('--gamma', type=float, default=0.1,
 
 
 def main():
+    global args
     args = parser.parse_args()
 
     use_cuda = torch.cuda.is_available()
@@ -58,12 +61,13 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
+    data_dir = '/mnt/lustre/gaowei'
 
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
+    trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True, download=True, transform=transform_train)
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
+    testset = torchvision.datasets.CIFAR10(root=data_dir, train=False, download=True, transform=transform_test)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
 
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -73,31 +77,35 @@ def main():
         print('==> Resuming from checkpoint..')
         assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
         checkpoint = torch.load('./checkpoint/ckpt.t7')
-        net = checkpoint['net']
+        model = vgg.VGG('VGG16')
+        model.load_state_dict(checkpoint['state_dict'])
         best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
     else:
         print('==> Building model..')
-        net = VGG('VGG16')
-        # net = ResNet18()
+        model = vgg.VGG('VGG16')
 
     if use_cuda:
-        net.cuda()
-        net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
+        model.cuda()
+        model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
         cudnn.benchmark = True
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     if args.evaluate:
         prec1 = validate(val_loader, model, criterion)
         return
     best_prec1 = 0
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer=optimizer, epoch=epoch, lr=args.lr, schedule=args.schedule, gamma=args.gamma):
+        adjust_learning_rate(optimizer=optimizer, epoch=epoch, lr=args.lr, schedule=args.schedule, gamma=args.gamma)
 
         train(train_loader, model, criterion, optimizer, epoch)
-        prec1 = validate(val_loader, model, criterion)
+        prec1 = validate(test_loader, model, criterion)
         if prec1 > best_prec1:
+            if not os.path.isdir(args.save_path):
+                os.mkdir(args.save_path)
+            is_best = prec1 > best_prec1
+            save_path = os.path.join(args.save_path, 'checkpoint{0}'.format(epoch))
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
@@ -109,6 +117,7 @@ def main():
 
 # Training
 def train(train_loader, model, criterion, optimizer, epoch):
+    global args
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -135,21 +144,20 @@ def train(train_loader, model, criterion, optimizer, epoch):
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
 
 
-        losses.update(reduced_loss[0], input.size(0))
-        top1.update(reduced_prec1[0], input.size(0))
-        top5.update(reduced_prec5[0], input.size(0))
+        losses.update(loss.cpu().data[0], input.size(0))
+        top1.update(prec1.cpu()[0], input.size(0))
+        top5.update(prec5.cpu()[0], input.size(0))
 
         # compute gradient
         optimizer.zero_grad()
         loss.backward()
-        average_gradients(model)
         optimizer.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0 and rank == 0:
+        if i % args.print_freq == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
@@ -162,6 +170,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
 
 def validate(val_loader, model, criterion):
+    global args
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -181,16 +190,12 @@ def validate(val_loader, model, criterion):
         output = model(input_var)
 
         # measure accuracy and record loss
-        loss = criterion(output, target_var) / world_size
+        loss = criterion(output, target_var)
         prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
 
-        reduced_loss = loss.data.clone()
-        reduced_prec1 = prec1.clone() / world_size
-        reduced_prec5 = prec5.clone() / world_size
-
-        losses.update(reduced_loss[0], input.size(0))
-        top1.update(reduced_prec1[0], input.size(0))
-        top5.update(reduced_prec5[0], input.size(0))
+        losses.update(loss.cpu().data[0], input.size(0))
+        top1.update(prec1.cpu()[0], input.size(0))
+        top5.update(prec5.cpu()[0], input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -211,5 +216,5 @@ def validate(val_loader, model, criterion):
     return top1.avg
 
 
-if name == '__main__':
+if __name__ == '__main__':
     main()

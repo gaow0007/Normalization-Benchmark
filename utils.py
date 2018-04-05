@@ -1,3 +1,6 @@
+import torch
+import sys, os
+import shutil
 
 def adjust_learning_rate(optimizer, epoch, lr, schedule, gamma):
     """Sets the learning rate to the initial LR decayed by schedule"""
@@ -40,3 +43,9 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
+def save_checkpoint(state, is_best, filename):
+    torch.save(state, filename+'.pth.tar')
+    if is_best:
+        shutil.copyfile(filename+'.pth.tar', filename+'_best.pth.tar')
+

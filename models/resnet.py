@@ -1,9 +1,9 @@
 import torch.nn as nn
 import math
 import torch.utils.model_zoo as model_zoo
-import LayerNorm
-import GroupNorm
-import InstanceNorm
+import models.LayerNorm
+import models.GroupNorm
+import models.InstanceNorm
 def make_norm(num_features, norm='bn'):
     if norm == 'bn':
         return nn.BatchNorm2d(num_features)

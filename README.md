@@ -18,16 +18,6 @@ Pros:
 | [VGG16-IN](https://arxiv.org/abs/1607.08022)          | 93.000 |
 | [VGG16-GN](https://arxiv.org/abs/1803.08494)          | 92.720 |
 
-
-| Model             | Acc.        |
-| ----------------- | ----------- |
-| [ResNet18](https://arxiv.org/abs/1512.03385)             | -      |
-| [ResNet18-BN](https://arxiv.org/abs/1502.03167)          | -      |
-| [ResNet18-WN](https://arxiv.org/abs/1602.07868)          | -      |
-| [ResNet18-LN](https://arxiv.org/abs/1607.06450)          | -      |
-| [ResNet18-IN](https://arxiv.org/abs/1607.08022)          | -      |
-| [ResNet18-GN](https://arxiv.org/abs/1803.08494)          | -      |
-
 ## Learning rate adjustment
 I manually change the `lr` during training:
 - `0.01` for epoch `[0,150)`
